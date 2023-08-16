@@ -9,3 +9,9 @@ thumbs.db
 .DS_Store
 .idea
 
+*.onnx
+*.wav
+*.mp3
+onnx_model/
+diff.py
+.vscode/
