@@ -12,9 +12,10 @@ from .audio import load_audio, log_mel_spectrogram, pad_or_trim
 # from .decoding import DecodingOptions, DecodingResult, decode, detect_language
 # from .model import ModelDimensions, Whisper
 # from .transcribe import transcribe
-from .decoding2 import DecodingOptions, DecodingResult, decode, detect_language
-from .model2 import ModelDimensions, Whisper
+from .decoding3 import DecodingOptions, DecodingResult, decode, detect_language
+from .model3 import ModelDimensions, Whisper
 from .transcribe2 import transcribe as transcribe_kjw
+from .transcribe3 import transcribe as transcribe_kjw2
 from .version import __version__
 
 _MODELS = {
@@ -102,6 +103,7 @@ def load_model(
     device: Optional[Union[str, torch.device]] = None,
     download_root: str = None,
     in_memory: bool = False,
+    onnx: bool = False
 ) -> Whisper:
     """
     Load a Whisper ASR model
@@ -148,8 +150,9 @@ def load_model(
     del checkpoint_file
 
     dims = ModelDimensions(**checkpoint["dims"])
-    model = Whisper(dims, name)
-    model.load_state_dict(checkpoint["model_state_dict"])
+    model = Whisper(dims, name, onnx)
+    if not onnx:
+        model.load_state_dict(checkpoint["model_state_dict"])
 
     if alignment_heads is not None:
         model.set_alignment_heads(alignment_heads)

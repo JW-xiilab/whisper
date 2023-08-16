@@ -179,7 +179,7 @@ class PyTorchInference(Inference):
         # torch.onnx.export(
         #     self.model.decoder,
         #     (tokens, audio_features, torch.from_numpy(self.kv_cache), torch.tensor(offset)),
-        #     "decoder.onnx",
+        #     "./onnx_model/decoder.onnx",
         #     verbose=False,
         #     opset_version=11,
         #     input_names=["tokens", "audio_features", "kv_cache", "offset"],
@@ -193,7 +193,7 @@ class PyTorchInference(Inference):
         # )
         # print("<------------------")
         # exit()
-        output, self.kv_cache = self.model.decoder(tokens, audio_features, kv_cache=torch.from_numpy(self.kv_cache), offset=torch.tensor(offset))
+        output, self.kv_cache = self.model.decoder(tokens, audio_features, kv_cache=torch.from_numpy(self.kv_cache), offset=offset)
         self.kv_cache = self.kv_cache[:, :, :length, :]
         return output
         # return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
@@ -683,31 +683,32 @@ class DecodingTask:
     def _get_audio_features(self, mel: Tensor):
         if self.options.fp16:
             mel = mel.half()
-        export_encoder = True  # NOTE
+        # export_encoder = True  # NOTE
         if mel.shape[-2:] == (
             self.model.dims.n_audio_ctx,
             self.model.dims.n_audio_state,
         ):
             # encoded audio features are given; skip audio encoding
             audio_features = mel
-        elif export_encoder:
-            # export encoder as onnx
-            print("------------------>")
-            mel = mel.float()
-            from torch.autograd import Variable
-            x = Variable(mel)
-            torch.onnx.export(
-                self.model.encoder, x, './onnx_model/encoder/encoder.onnx',
-                input_names=["mel"],
-                output_names=["audio_features"],
-                dynamic_axes={
-                    "mel": [2],
-                    "audio_features": [1],
-                },
-                verbose=False, opset_version=11
-            )
-            print("<------------------")
-            exit()
+        # elif export_encoder:
+        #     # export encoder as onnx
+        #     print("------------------>")
+        #     mel = mel.float()
+        #     from torch.autograd import Variable
+        #     x = Variable(mel)
+        #     torch.onnx.export(
+        #         self.model.encoder, x, './onnx_model/encoder/encoder.onnx',
+        #         input_names=["mel"],
+        #         output_names=["audio_features"],
+        #         dynamic_axes={
+        #             "mel": [2],
+        #             "audio_features": [1],
+        #         },
+        #         verbose=True,
+        #         opset_version=11
+        #     )
+        #     print("<------------------")
+        #     exit()
         else:
             audio_features = self.model.encoder(mel)
 
