@@ -12,7 +12,7 @@ from .tokenizer import Tokenizer, get_tokenizer
 from .utils import compression_ratio
 
 if TYPE_CHECKING:
-    from .model import Whisper
+    from .model2 import Whisper
 
 
 @torch.no_grad()
@@ -143,35 +143,79 @@ class PyTorchInference(Inference):
     def __init__(self, model: "Whisper", initial_token_length: int):
         self.model: "Whisper" = model
         self.initial_token_length = initial_token_length
-        self.kv_cache = {}
-        self.hooks = []
+        self.kv_cache = None
+        # self.kv_cache = {}
+        # self.hooks = []
 
-        key_modules = [block.attn.key for block in self.model.decoder.blocks]
-        value_modules = [block.attn.value for block in self.model.decoder.blocks]
-        self.kv_modules = key_modules + value_modules
+        # key_modules = [block.attn.key for block in self.model.decoder.blocks]
+        # value_modules = [block.attn.value for block in self.model.decoder.blocks]
+        # self.kv_modules = key_modules + value_modules
 
     def logits(self, tokens: Tensor, audio_features: Tensor) -> Tensor:
-        if not self.kv_cache:
-            self.kv_cache, self.hooks = self.model.install_kv_cache_hooks()
+        # if not self.kv_cache:
+        #     self.kv_cache, self.hooks = self.model.install_kv_cache_hooks()
+
+
+        n_group = tokens.shape[0]
+        if self.kv_cache is None:
+            self.kv_cache = self.model.new_kv_cache(n_group, self.initial_token_length)
+            offset = 0
+            length = self.initial_token_length
+        else:
+            offset = self.kv_cache.shape[2]
+            length = offset + 1
+            new_kv_cache = self.model.new_kv_cache(n_group, offset + 1)
+            new_kv_cache[:, :, :offset, :] = self.kv_cache
+            self.kv_cache = new_kv_cache
 
         if tokens.shape[-1] > self.initial_token_length:
             # only need to use the last token except in the first forward pass
             tokens = tokens[:, -1:]
 
-        return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+        # print(f"tokens: {tokens.shape}")
+        # print(f"audio_features: {audio_features.shape}")
+        # print(f"kv_cache: {self.kv_cache.shape}")
+        # print("------------------>")
+        # torch.onnx.export(
+        #     self.model.decoder,
+        #     (tokens, audio_features, torch.from_numpy(self.kv_cache), torch.tensor(offset)),
+        #     "decoder.onnx",
+        #     verbose=False,
+        #     opset_version=11,
+        #     input_names=["tokens", "audio_features", "kv_cache", "offset"],
+        #     output_names=["logits", "output_kv_cache"],
+        #     dynamic_axes={
+        #         "tokens": [0, 1],
+        #         "audio_features": [0, 1],
+        #         "kv_cache": [1, 2],
+        #         "output_kv_cache": [2],
+        #     }
+        # )
+        # print("<------------------")
+        # exit()
+        output, self.kv_cache = self.model.decoder(tokens, audio_features, kv_cache=torch.from_numpy(self.kv_cache), offset=torch.tensor(offset))
+        self.kv_cache = self.kv_cache[:, :, :length, :]
+        return output
+        # return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
 
+    # def cleanup_caching(self):
+    #     for hook in self.hooks:
+    #         hook.remove()
+
+    #     self.kv_cache = {}
+    #     self.hooks = []
+
+    # def rearrange_kv_cache(self, source_indices):
+    #     if source_indices != list(range(len(source_indices))):
+    #         for module in self.kv_modules:
+    #             # update the key/value cache to contain the selected sequences
+    #             self.kv_cache[module] = self.kv_cache[module][source_indices].detach()
+    
     def cleanup_caching(self):
-        for hook in self.hooks:
-            hook.remove()
-
-        self.kv_cache = {}
-        self.hooks = []
+        self.kv_cache = None
 
     def rearrange_kv_cache(self, source_indices):
-        if source_indices != list(range(len(source_indices))):
-            for module in self.kv_modules:
-                # update the key/value cache to contain the selected sequences
-                self.kv_cache[module] = self.kv_cache[module][source_indices].detach()
+        self.kv_cache = self.kv_cache[:, source_indices]
 
 
 class SequenceRanker:
@@ -639,13 +683,31 @@ class DecodingTask:
     def _get_audio_features(self, mel: Tensor):
         if self.options.fp16:
             mel = mel.half()
-
+        export_encoder = True  # NOTE
         if mel.shape[-2:] == (
             self.model.dims.n_audio_ctx,
             self.model.dims.n_audio_state,
         ):
             # encoded audio features are given; skip audio encoding
             audio_features = mel
+        elif export_encoder:
+            # export encoder as onnx
+            print("------------------>")
+            mel = mel.float()
+            from torch.autograd import Variable
+            x = Variable(mel)
+            torch.onnx.export(
+                self.model.encoder, x, './onnx_model/encoder/encoder.onnx',
+                input_names=["mel"],
+                output_names=["audio_features"],
+                dynamic_axes={
+                    "mel": [2],
+                    "audio_features": [1],
+                },
+                verbose=False, opset_version=11
+            )
+            print("<------------------")
+            exit()
         else:
             audio_features = self.model.encoder(mel)
 

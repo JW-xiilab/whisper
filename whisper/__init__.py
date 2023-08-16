@@ -9,9 +9,12 @@ import torch
 from tqdm import tqdm
 
 from .audio import load_audio, log_mel_spectrogram, pad_or_trim
-from .decoding import DecodingOptions, DecodingResult, decode, detect_language
-from .model import ModelDimensions, Whisper
-from .transcribe import transcribe
+# from .decoding import DecodingOptions, DecodingResult, decode, detect_language
+# from .model import ModelDimensions, Whisper
+# from .transcribe import transcribe
+from .decoding2 import DecodingOptions, DecodingResult, decode, detect_language
+from .model2 import ModelDimensions, Whisper
+from .transcribe2 import transcribe as transcribe_kjw
 from .version import __version__
 
 _MODELS = {
@@ -145,7 +148,7 @@ def load_model(
     del checkpoint_file
 
     dims = ModelDimensions(**checkpoint["dims"])
-    model = Whisper(dims)
+    model = Whisper(dims, name)
     model.load_state_dict(checkpoint["model_state_dict"])
 
     if alignment_heads is not None:
