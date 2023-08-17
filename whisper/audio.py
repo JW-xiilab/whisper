@@ -72,7 +72,7 @@ def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
             array = array.index_select(
                 dim=axis, index=torch.arange(length, device=array.device)
             )
-
+        # NOTE may need to use this
         if array.shape[axis] < length:
             pad_widths = [(0, 0)] * array.ndim
             pad_widths[axis] = (0, length - array.shape[axis])

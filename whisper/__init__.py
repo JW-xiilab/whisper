@@ -12,10 +12,12 @@ from .audio import load_audio, log_mel_spectrogram, pad_or_trim
 # from .decoding import DecodingOptions, DecodingResult, decode, detect_language
 # from .model import ModelDimensions, Whisper
 # from .transcribe import transcribe
-from .decoding3 import DecodingOptions, DecodingResult, decode, detect_language
-from .model3 import ModelDimensions, Whisper
-from .transcribe2 import transcribe as transcribe_kjw
-from .transcribe3 import transcribe as transcribe_kjw2
+from .decoding_batch import DecodingOptions, DecodingResult, decode, detect_language
+from .model_batch import ModelDimensions, Whisper
+from .transcribe import transcribe
+from .transcribe2 import transcribe as transcribe_kjw2
+from .transcribe3 import transcribe as transcribe_kjw3
+from .transcribe_batch import transcribe as transcribe_batch
 from .version import __version__
 
 _MODELS = {
@@ -150,7 +152,7 @@ def load_model(
     del checkpoint_file
 
     dims = ModelDimensions(**checkpoint["dims"])
-    model = Whisper(dims, name)#, onnx)
+    model = Whisper(dims)#, name)#, onnx)
     if not onnx:
         model.load_state_dict(checkpoint["model_state_dict"])
 
