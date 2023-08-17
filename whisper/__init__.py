@@ -150,7 +150,7 @@ def load_model(
     del checkpoint_file
 
     dims = ModelDimensions(**checkpoint["dims"])
-    model = Whisper(dims, name, onnx)
+    model = Whisper(dims, name)#, onnx)
     if not onnx:
         model.load_state_dict(checkpoint["model_state_dict"])
 

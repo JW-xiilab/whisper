@@ -349,5 +349,5 @@ class Whisper(nn.Module):
 
     detect_language = detect_language_function
     # transcribe = transcribe_function
-    transcribe_kjw = transcribe_function_kjw
+    transcribe_kjw2 = transcribe_function_kjw
     decode = decode_function

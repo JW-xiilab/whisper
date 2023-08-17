@@ -256,3 +256,6 @@ def get_writer(
         return write_all
 
     return writers[output_format](output_dir)
+
+def to_numpy(tensor):
+    return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
